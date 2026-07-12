@@ -17,7 +17,7 @@ export interface Track {
 }
 
 /** 'none' means a lookup ran and found nothing — cached so it isn't retried every visit. */
-export type KeySource = 'getsongbpm' | 'manual' | 'none'
+export type KeySource = 'spotify' | 'getsongbpm' | 'manual' | 'none'
 
 export interface TrackKeyInfo {
   bpm: number | null

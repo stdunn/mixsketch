@@ -60,6 +60,59 @@ async function fetchAllPages<T>(firstUrl: string): Promise<T[]> {
   return items
 }
 
+export type AudioFeaturesAvailability = 'unknown' | 'available' | 'unavailable'
+
+const AF_FLAG_KEY = 'mixsketch:audio-features'
+
+/**
+ * Spotify deprecated /audio-features for apps registered after Nov 27, 2024,
+ * but grandfathered apps still get data. Whether this app has access is probed
+ * once at runtime and remembered.
+ */
+export function audioFeaturesAvailability(): AudioFeaturesAvailability {
+  const v = localStorage.getItem(AF_FLAG_KEY)
+  return v === 'available' || v === 'unavailable' ? v : 'unknown'
+}
+
+export interface AudioFeatures {
+  id: string
+  /** BPM */
+  tempo: number
+  /** pitch class 0–11, -1 when unknown */
+  key: number
+  /** 1 = major, 0 = minor */
+  mode: number
+}
+
+/**
+ * Batched audio-features lookup (100 ids per request).
+ * Returns null when this Spotify app has no access to the endpoint.
+ */
+export async function getAudioFeatures(
+  trackIds: string[],
+): Promise<Map<string, AudioFeatures> | null> {
+  if (audioFeaturesAvailability() === 'unavailable') return null
+  const map = new Map<string, AudioFeatures>()
+  for (let i = 0; i < trackIds.length; i += 100) {
+    const chunk = trackIds.slice(i, i + 100)
+    let data: { audio_features: (AudioFeatures | null)[] }
+    try {
+      data = await spotifyFetch(`/audio-features?ids=${chunk.join(',')}`)
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('Spotify API error 403')) {
+        localStorage.setItem(AF_FLAG_KEY, 'unavailable')
+        return null
+      }
+      throw err
+    }
+    for (const f of data.audio_features ?? []) {
+      if (f) map.set(f.id, f)
+    }
+  }
+  localStorage.setItem(AF_FLAG_KEY, 'available')
+  return map
+}
+
 function mapPlaylist(p: RawPlaylist): Playlist {
   return {
     id: p.id,

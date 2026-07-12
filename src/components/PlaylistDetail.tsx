@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { hasGetSongBpmKey, lookupTrack } from '../api/getsongbpm'
-import { getPlaylistMeta, getPlaylistTracks } from '../api/spotify'
-import { compatibleKeys, musicalKeyToCamelot, openKeyToCamelot } from '../lib/camelot'
+import {
+  audioFeaturesAvailability,
+  getAudioFeatures,
+  getPlaylistMeta,
+  getPlaylistTracks,
+} from '../api/spotify'
+import {
+  compatibleKeys,
+  musicalKeyToCamelot,
+  openKeyToCamelot,
+  pitchClassToCamelot,
+  pitchClassToName,
+} from '../lib/camelot'
 import { getAllKeyInfo, setKeyInfo, type KeyInfoMap } from '../lib/keyStore'
 import type { Playlist, Track, TrackKeyInfo } from '../types'
 import InKeyPanel from './InKeyPanel'
@@ -18,6 +29,7 @@ export default function PlaylistDetail() {
   const [keyInfo, setKeyInfoState] = useState<KeyInfoMap>(() => getAllKeyInfo())
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pendingLookups, setPendingLookups] = useState(0)
+  const [afStatus, setAfStatus] = useState(audioFeaturesAvailability())
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,16 +54,54 @@ export default function PlaylistDetail() {
     }
   }, [id])
 
-  // Lazily fill in key/BPM data for tracks that aren't cached yet.
+  // Lazily fill in key/BPM data for tracks that aren't cached yet:
+  // Spotify audio features first (batched; only grandfathered apps have access),
+  // then GetSongBPM one-by-one for whatever's left.
   useEffect(() => {
-    if (!tracks || !hasGetSongBpmKey()) return
+    if (!tracks) return
+    if (!hasGetSongBpmKey() && audioFeaturesAvailability() === 'unavailable') return
     const stored = getAllKeyInfo()
     const missing = tracks.filter((t) => !stored[t.id])
     if (missing.length === 0) return
     let cancelled = false
     setPendingLookups(missing.length)
     ;(async () => {
-      for (const track of missing) {
+      let remaining = missing
+      try {
+        const features = await getAudioFeatures(missing.map((t) => t.id))
+        if (cancelled) return
+        if (features) {
+          const resolved: KeyInfoMap = {}
+          remaining = []
+          for (const track of missing) {
+            const f = features.get(track.id)
+            if (f && (f.tempo > 0 || f.key >= 0)) {
+              const info: TrackKeyInfo = {
+                bpm: f.tempo > 0 ? f.tempo : null,
+                camelotKey: pitchClassToCamelot(f.key, f.mode),
+                keyName: pitchClassToName(f.key, f.mode),
+                source: 'spotify',
+                fetchedAt: Date.now(),
+              }
+              resolved[track.id] = info
+              setKeyInfo(track.id, info)
+            } else {
+              remaining.push(track)
+            }
+          }
+          setKeyInfoState((prev) => ({ ...prev, ...resolved }))
+          setPendingLookups(remaining.length)
+        }
+      } catch {
+        // Transient Spotify error — let GetSongBPM handle everything this visit.
+      }
+      if (cancelled) return
+      setAfStatus(audioFeaturesAvailability())
+      if (!hasGetSongBpmKey()) {
+        setPendingLookups(0)
+        return
+      }
+      for (const track of remaining) {
         if (cancelled) return
         let info: TrackKeyInfo | null = null
         try {
@@ -132,10 +182,14 @@ export default function PlaylistDetail() {
             {pendingLookups > 0 && (
               <span className="lookup-status"> · looking up keys… {pendingLookups} left</span>
             )}
-            {!hasGetSongBpmKey() && (
+            {afStatus === 'available' && (
+              <span className="lookup-status"> · key/BPM data from Spotify</span>
+            )}
+            {!hasGetSongBpmKey() && afStatus === 'unavailable' && (
               <span className="lookup-status">
                 {' '}
-                · add <code>VITE_GETSONGBPM_API_KEY</code> to .env.local for BPM &amp; key data
+                · this Spotify app can't access audio features — add{' '}
+                <code>VITE_GETSONGBPM_API_KEY</code> to .env.local for BPM &amp; key data
               </span>
             )}
           </div>

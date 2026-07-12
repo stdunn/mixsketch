@@ -4,9 +4,12 @@ A local app for sketching out DJ mixes from your Spotify playlists. View your
 playlists, see each track's BPM and Camelot key, and click any track to find
 the other tracks in the playlist that are harmonically compatible.
 
-> **Why no Spotify BPM/key?** Spotify removed the Audio Features API for apps
-> registered after Nov 27, 2024, so key/BPM data comes from
-> [GetSongBPM](https://getsongbpm.com) instead and is cached in localStorage.
+> **Where does BPM/key come from?** Spotify removed the Audio Features API for
+> apps registered after Nov 27, 2024, but older apps still have access. MixSketch
+> probes the endpoint at runtime: if your Spotify app is grandfathered in, data
+> comes straight from Spotify (batched, fast); otherwise it falls back to
+> [GetSongBPM](https://getsongbpm.com). Results are cached in localStorage
+> either way.
 
 ## Setup
 
@@ -24,8 +27,9 @@ the other tracks in the playlist that are harmonically compatible.
    VITE_SPOTIFY_CLIENT_ID=your_client_id_here
    ```
 
-2. **GetSongBPM API key** (optional but needed for BPM/key data) — get a free
-   key at [getsongbpm.com/api](https://getsongbpm.com/api) and add it:
+2. **GetSongBPM API key** (optional — only needed for BPM/key data if your
+   Spotify app was created after Nov 27, 2024) — get a free key at
+   [getsongbpm.com/api](https://getsongbpm.com/api) and add it:
 
    ```
    VITE_GETSONGBPM_API_KEY=your_key_here

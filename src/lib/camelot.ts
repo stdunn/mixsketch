@@ -37,6 +37,21 @@ export function musicalKeyToCamelot(raw: string): string | null {
   return `${num}${isMinor ? 'A' : 'B'}`
 }
 
+const PITCH_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B']
+
+/** Convert Spotify audio-features pitch class (0–11, -1 unknown) + mode (1 major, 0 minor) to Camelot. */
+export function pitchClassToCamelot(pitchClass: number, mode: number): string | null {
+  if (pitchClass < 0 || pitchClass > 11) return null
+  const num = mode === 0 ? MINOR_TO_CAMELOT[pitchClass] : MAJOR_TO_CAMELOT[pitchClass]
+  return `${num}${mode === 0 ? 'A' : 'B'}`
+}
+
+/** Musical name for a Spotify pitch class + mode, e.g. (8, 0) → "A♭m". */
+export function pitchClassToName(pitchClass: number, mode: number): string | null {
+  if (pitchClass < 0 || pitchClass > 11) return null
+  return `${PITCH_NAMES[pitchClass]}${mode === 0 ? 'm' : ''}`
+}
+
 /** Convert Open Key notation ("6m", "12d") to Camelot ("5A", "7B"). */
 export function openKeyToCamelot(openKey: string): string | null {
   const m = openKey.trim().toLowerCase().match(/^(\d{1,2})\s*([dm])$/)
