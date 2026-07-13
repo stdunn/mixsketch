@@ -72,6 +72,11 @@ the other tracks in the playlist that are harmonically compatible.
 - **Drag rows to sketch a mix order** (when sorted by # with no filter). The
   custom order is saved per playlist and survives restarts; "Reset to playlist
   order" puts Spotify's order back.
+- **Playback**: hover a row (or select a track) and hit ▶ to play it right in
+  the app via Spotify's Web Playback SDK — the tab shows up as a "MixSketch"
+  device in Spotify Connect. The bottom player bar has play/pause, a seek
+  slider, and volume. **Requires Spotify Premium** (free accounts see a notice
+  instead).
 - Sessions refresh their Spotify token automatically in the background, so you
   won't have to reconnect after stepping away.
 

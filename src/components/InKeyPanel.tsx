@@ -23,6 +23,8 @@ interface Props {
   onSelect: (trackId: string) => void
   onClose: () => void
   onSaveManual: (bpm: number | null, camelotKey: string | null) => void
+  /** null while the in-app player isn't ready */
+  onPlay: (() => void) | null
 }
 
 function ManualEditForm({
@@ -85,6 +87,7 @@ export default function InKeyPanel({
   onSelect,
   onClose,
   onSaveManual,
+  onPlay,
 }: Props) {
   return (
     <aside className="inkey-panel">
@@ -104,6 +107,15 @@ export default function InKeyPanel({
             {info?.bpm != null ? `${Math.round(info.bpm)} BPM` : 'BPM unknown'}
           </span>
           {info?.source === 'manual' && <span className="source-tag">manual</span>}
+          <button
+            className="play-button large"
+            disabled={!onPlay}
+            onClick={onPlay ?? undefined}
+            title={onPlay ? 'Play' : 'Player starting…'}
+            aria-label={`Play ${track.title}`}
+          >
+            ▶
+          </button>
         </div>
       </div>
 

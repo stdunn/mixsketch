@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, Route, Routes } from 'react-router-dom'
 import { isLoggedIn, logout, startTokenKeepalive } from './auth/spotifyAuth'
 import { migrateLegacyLocalStorage } from './lib/keyStore'
+import { disconnectPlayer } from './player/spotifyPlayer'
+import PlayerBar from './components/PlayerBar'
 import Callback from './components/Callback'
 import Login from './components/Login'
 import PlaylistDetail from './components/PlaylistDetail'
@@ -29,6 +31,7 @@ function App() {
           <button
             className="link-button"
             onClick={() => {
+              disconnectPlayer()
               logout()
               setLoggedIn(false)
             }}
@@ -51,6 +54,7 @@ function App() {
           )}
         </Routes>
       </main>
+      {loggedIn && <PlayerBar />}
       <footer className="app-footer">
         Key &amp; BPM data provided by{' '}
         <a href="https://getsongbpm.com" target="_blank" rel="noreferrer">

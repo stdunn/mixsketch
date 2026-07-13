@@ -23,6 +23,8 @@ interface Props {
   /** true while this track's key data is still being looked up */
   lookupPending: boolean
   dragEnabled: boolean
+  /** null while the in-app player isn't ready */
+  onPlay: (() => void) | null
   onClick: () => void
 }
 
@@ -35,6 +37,7 @@ export default function TrackRow({
   compatTier,
   lookupPending,
   dragEnabled,
+  onPlay,
   onClick,
 }: Props) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -60,6 +63,20 @@ export default function TrackRow({
       {...listeners}
     >
       <td className="col-num">{index}</td>
+      <td className="col-play">
+        <button
+          className="play-button"
+          disabled={!onPlay}
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay?.()
+          }}
+          title={onPlay ? 'Play' : 'Player starting…'}
+          aria-label={`Play ${track.title}`}
+        >
+          ▶
+        </button>
+      </td>
       <td className="col-title">{track.title}</td>
       <td className="col-artist">{track.artists.join(', ')}</td>
       <td className="col-album">{track.album}</td>

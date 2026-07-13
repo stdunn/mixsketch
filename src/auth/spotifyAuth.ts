@@ -2,7 +2,10 @@ import { generateCodeVerifier, computeCodeChallenge } from './pkce'
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
 const REDIRECT_URI = `${window.location.origin}/callback`
-const SCOPES = 'playlist-read-private playlist-read-collaborative'
+// streaming + user-read-email/private are required by the Web Playback SDK;
+// user-modify/read-playback-state drive playback on the in-app device.
+const SCOPES =
+  'playlist-read-private playlist-read-collaborative streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state'
 const TOKEN_KEY = 'mixsketch:tokens'
 const VERIFIER_KEY = 'mixsketch:pkce-verifier'
 
@@ -11,6 +14,14 @@ interface StoredTokens {
   refreshToken: string
   /** epoch ms, with a safety margin already subtracted */
   expiresAt: number
+  /** space-separated scopes the token was granted with */
+  scopes?: string
+}
+
+/** True when the stored grant covers every scope the app currently needs. */
+function scopesCurrent(tokens: StoredTokens): boolean {
+  const granted = new Set((tokens.scopes ?? '').split(' '))
+  return SCOPES.split(' ').every((s) => granted.has(s))
 }
 
 export function isConfigured(): boolean {
@@ -18,7 +29,14 @@ export function isConfigured(): boolean {
 }
 
 export function isLoggedIn(): boolean {
-  return loadTokens() !== null
+  const tokens = loadTokens()
+  if (!tokens) return false
+  if (!scopesCurrent(tokens)) {
+    // the app needs scopes this grant doesn't have — force a fresh consent
+    logout()
+    return false
+  }
+  return true
 }
 
 export function logout(): void {
@@ -130,6 +148,7 @@ async function requestTokens(body: URLSearchParams): Promise<StoredTokens> {
     // Spotify may omit refresh_token on refresh responses; keep the old one.
     refreshToken: data.refresh_token ?? prev?.refreshToken ?? '',
     expiresAt: Date.now() + data.expires_in * 1000 - 60_000,
+    scopes: data.scope ?? prev?.scopes ?? '',
   }
   localStorage.setItem(TOKEN_KEY, JSON.stringify(tokens))
   return tokens

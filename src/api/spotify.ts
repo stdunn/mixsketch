@@ -29,24 +29,31 @@ interface Paged<T> {
   next: string | null
 }
 
-async function spotifyFetch<T>(url: string, retried = false): Promise<T> {
+async function spotifyFetch<T>(url: string, init: RequestInit = {}, retried = false): Promise<T> {
   const token = await getAccessToken()
   const res = await fetch(url.startsWith('http') ? url : `${BASE}${url}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init.headers ?? {}),
+    },
   })
   if (res.status === 401 && !retried) {
     await forceRefresh()
-    return spotifyFetch<T>(url, true)
+    return spotifyFetch<T>(url, init, true)
   }
   if (res.status === 429) {
     const wait = Number(res.headers.get('Retry-After') ?? '1')
     await new Promise((r) => setTimeout(r, (wait + 1) * 1000))
-    return spotifyFetch<T>(url, retried)
+    return spotifyFetch<T>(url, init, retried)
   }
   if (!res.ok) {
     throw new Error(`Spotify API error ${res.status}: ${await res.text()}`)
   }
-  return res.json() as Promise<T>
+  if (res.status === 204) return undefined as T
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }
 
 async function fetchAllPages<T>(firstUrl: string): Promise<T[]> {
@@ -133,6 +140,14 @@ export async function getPlaylistMeta(id: string): Promise<Playlist> {
   const fields = 'id,name,description,images,tracks.total,owner.display_name'
   const raw = await spotifyFetch<RawPlaylist>(`/playlists/${id}?fields=${encodeURIComponent(fields)}`)
   return mapPlaylist(raw)
+}
+
+/** Start playback of a track on the in-app Web Playback SDK device. */
+export async function playTrack(deviceId: string, uri: string): Promise<void> {
+  await spotifyFetch<void>(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ uris: [uri] }),
+  })
 }
 
 export async function getPlaylistTracks(id: string): Promise<Track[]> {

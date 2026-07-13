@@ -98,6 +98,134 @@ code {
   text-align: center;
 }
 
+/* ---------- player bar ---------- */
+
+.player-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 24px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 10;
+}
+
+.player-bar.dim {
+  color: var(--text-dim);
+  font-size: 13px;
+  justify-content: center;
+}
+
+.player-track {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.player-title {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-artist {
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-toggle {
+  background: var(--accent);
+  color: #06220f;
+  border: none;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.player-toggle:disabled {
+  background: var(--surface-hover);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.player-time {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.player-seek {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.player-volume {
+  width: 90px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+/* ---------- play buttons ---------- */
+
+.col-play {
+  width: 30px;
+  padding-right: 0;
+}
+
+.play-button {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--text-dim);
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.track-row:hover .play-button,
+.play-button:focus-visible {
+  opacity: 1;
+}
+
+.play-button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.play-button:disabled {
+  cursor: default;
+  opacity: 0;
+}
+
+.play-button.large {
+  opacity: 1;
+  width: 30px;
+  height: 30px;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+.play-button.large:disabled {
+  opacity: 0.35;
+}
+
 .page-title {
   font-size: 24px;
   margin: 0 0 16px;

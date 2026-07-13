@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   DndContext,
@@ -15,7 +15,9 @@ import {
   getAudioFeatures,
   getPlaylistMeta,
   getPlaylistTracks,
+  playTrack,
 } from '../api/spotify'
+import { getPlayerState, subscribePlayer } from '../player/spotifyPlayer'
 import {
   camelotSortValue,
   compatibilityTiers,
@@ -77,6 +79,13 @@ export default function PlaylistDetail() {
   const [error, setError] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const playerState = useSyncExternalStore(subscribePlayer, getPlayerState)
+  const playerDeviceId = playerState.status === 'ready' ? playerState.deviceId : null
+
+  const handlePlay = (uri: string) => {
+    if (!playerDeviceId) return
+    void playTrack(playerDeviceId, uri).catch(() => {})
+  }
 
   useEffect(() => {
     if (!id) return
@@ -397,6 +406,7 @@ export default function PlaylistDetail() {
                 <th className="col-num sortable" onClick={() => handleSort('position')}>
                   #{sortIndicator('position')}
                 </th>
+                <th className="col-play" aria-label="Play" />
                 <th className="sortable" onClick={() => handleSort('title')}>
                   Title{sortIndicator('title')}
                 </th>
@@ -434,6 +444,7 @@ export default function PlaylistDetail() {
                     }
                     lookupPending={!keyInfo[track.id] && pendingLookups > 0}
                     dragEnabled={dragEnabled}
+                    onPlay={playerDeviceId ? () => handlePlay(track.uri) : null}
                     onClick={() => setSelectedId((prev) => (prev === track.id ? null : track.id))}
                   />
                 ))}
@@ -456,6 +467,7 @@ export default function PlaylistDetail() {
           onSelect={setSelectedId}
           onClose={() => setSelectedId(null)}
           onSaveManual={(bpm, key) => handleManualSave(selectedTrack.id, bpm, key)}
+          onPlay={playerDeviceId ? () => handlePlay(selectedTrack.uri) : null}
         />
       )}
     </div>
