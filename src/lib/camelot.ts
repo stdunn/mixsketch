@@ -69,8 +69,9 @@ export type CompatTier = 1 | 2 | 3
  * - Tier 1 (perfect): the exact same key
  * - Tier 2 (close):   ±1 on the wheel in the same ring, or the relative key
  *                     (same number, other ring)
- * - Tier 3 (workable): ±2 in the same ring, or ±1 in the other ring
- *                     (energy switch, e.g. 5A → 4B or 6B)
+ * - Tier 3 (workable): ±2 in the same ring, or the directional energy switch:
+ *                     minor → major one number down, major → minor one number
+ *                     up (5A ↔ 4B, 8B ↔ 9A — but never 4B → 3A)
  */
 export function compatibilityTiers(camelot: string): Map<string, CompatTier> {
   const tiers = new Map<string, CompatTier>()
@@ -88,8 +89,7 @@ export function compatibilityTiers(camelot: string): Map<string, CompatTier> {
   for (const k of [
     `${wrap(n - 2)}${ring}`,
     `${wrap(n + 2)}${ring}`,
-    `${wrap(n - 1)}${otherRing}`,
-    `${wrap(n + 1)}${otherRing}`,
+    ring === 'A' ? `${wrap(n - 1)}${otherRing}` : `${wrap(n + 1)}${otherRing}`,
   ]) {
     if (!tiers.has(k)) tiers.set(k, 3)
   }
