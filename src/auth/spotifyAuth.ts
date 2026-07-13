@@ -71,6 +71,40 @@ export async function forceRefresh(): Promise<string> {
   return (await refresh(tokens)).accessToken
 }
 
+/**
+ * Proactively refresh the token in the background (every few minutes and on
+ * window focus) so the session survives hours of idling without re-auth.
+ * Returns a cleanup function; calls onAuthLost if a refresh is rejected.
+ */
+export function startTokenKeepalive(onAuthLost: () => void): () => void {
+  let checking = false
+  const check = async () => {
+    if (checking) return
+    checking = true
+    try {
+      const tokens = loadTokens()
+      if (!tokens) return
+      if (Date.now() > tokens.expiresAt - 10 * 60_000) {
+        await refresh(tokens)
+      }
+    } catch {
+      onAuthLost()
+    } finally {
+      checking = false
+    }
+  }
+  const interval = setInterval(() => void check(), 4 * 60_000)
+  const onFocus = () => void check()
+  window.addEventListener('focus', onFocus)
+  document.addEventListener('visibilitychange', onFocus)
+  void check()
+  return () => {
+    clearInterval(interval)
+    window.removeEventListener('focus', onFocus)
+    document.removeEventListener('visibilitychange', onFocus)
+  }
+}
+
 function loadTokens(): StoredTokens | null {
   try {
     const raw = localStorage.getItem(TOKEN_KEY)

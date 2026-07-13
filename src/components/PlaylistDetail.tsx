@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { hasGetSongBpmKey, lookupTrack } from '../api/getsongbpm'
 import {
   audioFeaturesAvailability,
@@ -8,13 +17,21 @@ import {
   getPlaylistTracks,
 } from '../api/spotify'
 import {
+  camelotSortValue,
   compatibleKeys,
   musicalKeyToCamelot,
   openKeyToCamelot,
   pitchClassToCamelot,
   pitchClassToName,
 } from '../lib/camelot'
-import { getAllKeyInfo, setKeyInfo, type KeyInfoMap } from '../lib/keyStore'
+import {
+  clearPlaylistOrder,
+  getKeyInfoBatch,
+  getPlaylistOrder,
+  saveKeyInfo,
+  savePlaylistOrder,
+  type KeyInfoMap,
+} from '../lib/keyStore'
 import type { Playlist, Track, TrackKeyInfo } from '../types'
 import InKeyPanel from './InKeyPanel'
 import TrackRow from './TrackRow'
@@ -22,50 +39,91 @@ import TrackRow from './TrackRow'
 // GetSongBPM's free tier is rate-limited; space out sequential lookups.
 const LOOKUP_DELAY_MS = 400
 
+type SortCol = 'position' | 'title' | 'artist' | 'bpm' | 'key'
+
+interface DisplayItem {
+  track: Track
+  /** stable row id; playlists can contain the same track twice */
+  uid: string
+  /** 1-based position in the (custom-)ordered playlist */
+  position: number
+}
+
+/** Re-apply a saved custom order; unknown/new tracks keep Spotify order at the end. */
+function applyCustomOrder(tracks: Track[], order: string[] | null): Track[] {
+  if (!order) return tracks
+  const pool = [...tracks]
+  const result: Track[] = []
+  for (const id of order) {
+    const idx = pool.findIndex((t) => t.id === id)
+    if (idx !== -1) result.push(...pool.splice(idx, 1))
+  }
+  return [...result, ...pool]
+}
+
 export default function PlaylistDetail() {
   const { id } = useParams<{ id: string }>()
   const [meta, setMeta] = useState<Playlist | null>(null)
   const [tracks, setTracks] = useState<Track[] | null>(null)
-  const [keyInfo, setKeyInfoState] = useState<KeyInfoMap>(() => getAllKeyInfo())
+  const [customOrder, setCustomOrder] = useState<string[] | null>(null)
+  const [keyInfo, setKeyInfoState] = useState<KeyInfoMap>({})
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [filter, setFilter] = useState('')
+  const [sortCol, setSortCol] = useState<SortCol>('position')
+  const [sortDir, setSortDir] = useState<1 | -1>(1)
   const [pendingLookups, setPendingLookups] = useState(0)
   const [afStatus, setAfStatus] = useState(audioFeaturesAvailability())
   const [error, setError] = useState<string | null>(null)
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   useEffect(() => {
     if (!id) return
     let cancelled = false
     setMeta(null)
     setTracks(null)
+    setCustomOrder(null)
     setSelectedId(null)
+    setFilter('')
+    setSortCol('position')
+    setSortDir(1)
     setError(null)
-    Promise.all([getPlaylistMeta(id), getPlaylistTracks(id)])
-      .then(([m, t]) => {
+    ;(async () => {
+      try {
+        const [m, t, order] = await Promise.all([
+          getPlaylistMeta(id),
+          getPlaylistTracks(id),
+          getPlaylistOrder(id).catch(() => null),
+        ])
+        if (cancelled) return
+        const stored = await getKeyInfoBatch(t.map((x) => x.id)).catch(() => ({}) as KeyInfoMap)
         if (cancelled) return
         setMeta(m)
         setTracks(t)
-        setKeyInfoState(getAllKeyInfo())
-      })
-      .catch((err) => {
+        setCustomOrder(order)
+        setKeyInfoState(stored)
+      } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err))
-      })
+      }
+    })()
     return () => {
       cancelled = true
     }
   }, [id])
 
-  // Lazily fill in key/BPM data for tracks that aren't cached yet:
+  // Lazily fill in key/BPM data for tracks that aren't stored yet:
   // Spotify audio features first (batched; only grandfathered apps have access),
-  // then GetSongBPM one-by-one for whatever's left.
+  // then GetSongBPM one-by-one for whatever's left. Manual entries are never touched.
   useEffect(() => {
     if (!tracks) return
     if (!hasGetSongBpmKey() && audioFeaturesAvailability() === 'unavailable') return
-    const stored = getAllKeyInfo()
-    const missing = tracks.filter((t) => !stored[t.id])
-    if (missing.length === 0) return
     let cancelled = false
-    setPendingLookups(missing.length)
     ;(async () => {
+      const stored = await getKeyInfoBatch(tracks.map((t) => t.id)).catch(() => ({}) as KeyInfoMap)
+      if (cancelled) return
+      const missing = tracks.filter((t) => !stored[t.id])
+      if (missing.length === 0) return
+      setPendingLookups(missing.length)
       let remaining = missing
       try {
         const features = await getAudioFeatures(missing.map((t) => t.id))
@@ -76,19 +134,19 @@ export default function PlaylistDetail() {
           for (const track of missing) {
             const f = features.get(track.id)
             if (f && (f.tempo > 0 || f.key >= 0)) {
-              const info: TrackKeyInfo = {
+              resolved[track.id] = {
                 bpm: f.tempo > 0 ? f.tempo : null,
                 camelotKey: pitchClassToCamelot(f.key, f.mode),
                 keyName: pitchClassToName(f.key, f.mode),
                 source: 'spotify',
                 fetchedAt: Date.now(),
               }
-              resolved[track.id] = info
-              setKeyInfo(track.id, info)
             } else {
               remaining.push(track)
             }
           }
+          await saveKeyInfo(resolved)
+          if (cancelled) return
           setKeyInfoState((prev) => ({ ...prev, ...resolved }))
           setPendingLookups(remaining.length)
         }
@@ -125,7 +183,8 @@ export default function PlaylistDetail() {
         if (cancelled) return
         if (info) {
           const finalInfo = info
-          setKeyInfo(track.id, finalInfo)
+          await saveKeyInfo({ [track.id]: finalInfo }).catch(() => {})
+          if (cancelled) return
           setKeyInfoState((prev) => ({ ...prev, [track.id]: finalInfo }))
         }
         setPendingLookups((n) => Math.max(0, n - 1))
@@ -137,6 +196,70 @@ export default function PlaylistDetail() {
       setPendingLookups(0)
     }
   }, [tracks])
+
+  const orderedTracks = useMemo(
+    () => (tracks ? applyCustomOrder(tracks, customOrder) : []),
+    [tracks, customOrder],
+  )
+
+  // Stable per-row ids (a playlist can contain the same track twice).
+  const orderedItems = useMemo<DisplayItem[]>(() => {
+    const seen = new Map<string, number>()
+    return orderedTracks.map((track, i) => {
+      const occ = seen.get(track.id) ?? 0
+      seen.set(track.id, occ + 1)
+      return { track, uid: `${track.id}#${occ}`, position: i + 1 }
+    })
+  }, [orderedTracks])
+
+  const filterText = filter.trim().toLowerCase()
+  const displayItems = useMemo(() => {
+    let items = orderedItems
+    if (filterText) {
+      items = items.filter(
+        ({ track }) =>
+          track.title.toLowerCase().includes(filterText) ||
+          track.artists.some((a) => a.toLowerCase().includes(filterText)),
+      )
+    }
+    if (sortCol === 'position') {
+      return sortDir === 1 ? items : [...items].reverse()
+    }
+    const sorted = [...items].sort((a, b) => {
+      const ka = keyInfo[a.track.id]
+      const kb = keyInfo[b.track.id]
+      switch (sortCol) {
+        case 'title':
+          return a.track.title.localeCompare(b.track.title, undefined, { sensitivity: 'base' }) * sortDir
+        case 'artist':
+          return (
+            (a.track.artists[0] ?? '').localeCompare(b.track.artists[0] ?? '', undefined, {
+              sensitivity: 'base',
+            }) * sortDir
+          )
+        case 'bpm': {
+          // unknown BPM sorts last in either direction
+          const va = ka?.bpm ?? null
+          const vb = kb?.bpm ?? null
+          if (va === null && vb === null) return 0
+          if (va === null) return 1
+          if (vb === null) return -1
+          return (va - vb) * sortDir
+        }
+        case 'key': {
+          const va = camelotSortValue(ka?.camelotKey)
+          const vb = camelotSortValue(kb?.camelotKey)
+          if (va === vb) return ((ka?.bpm ?? 0) - (kb?.bpm ?? 0)) * sortDir
+          if (va === Number.MAX_SAFE_INTEGER) return 1
+          if (vb === Number.MAX_SAFE_INTEGER) return -1
+          return (va - vb) * sortDir
+        }
+      }
+    })
+    return sorted
+  }, [orderedItems, filterText, sortCol, sortDir, keyInfo])
+
+  const dragEnabled = sortCol === 'position' && sortDir === 1 && !filterText
 
   const selectedTrack = useMemo(
     () => tracks?.find((t) => t.id === selectedId) ?? null,
@@ -150,13 +273,55 @@ export default function PlaylistDetail() {
   )
 
   const inKeyTracks = useMemo(() => {
-    if (!tracks || !selectedTrack || !compatSet) return []
-    return tracks.filter((t) => {
+    if (!selectedTrack || !compatSet) return []
+    return orderedTracks.filter((t) => {
       if (t.id === selectedTrack.id) return false
       const key = keyInfo[t.id]?.camelotKey
       return Boolean(key && compatSet.has(key))
     })
-  }, [tracks, selectedTrack, compatSet, keyInfo])
+  }, [orderedTracks, selectedTrack, compatSet, keyInfo])
+
+  const handleSort = (col: SortCol) => {
+    if (col === sortCol) {
+      setSortDir((d) => (d === 1 ? -1 : 1))
+    } else {
+      setSortCol(col)
+      setSortDir(1)
+    }
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!id || !over || active.id === over.id) return
+    const uids = orderedItems.map((d) => d.uid)
+    const from = uids.indexOf(String(active.id))
+    const to = uids.indexOf(String(over.id))
+    if (from === -1 || to === -1) return
+    const ids = arrayMove(orderedTracks, from, to).map((t) => t.id)
+    setCustomOrder(ids)
+    void savePlaylistOrder(id, ids).catch(() => {})
+  }
+
+  const handleResetOrder = () => {
+    if (!id) return
+    setCustomOrder(null)
+    void clearPlaylistOrder(id).catch(() => {})
+  }
+
+  const handleManualSave = (trackId: string, bpm: number | null, camelotKey: string | null) => {
+    const info: TrackKeyInfo = {
+      bpm,
+      camelotKey,
+      keyName: null,
+      source: 'manual',
+      fetchedAt: Date.now(),
+    }
+    setKeyInfoState((prev) => ({ ...prev, [trackId]: info }))
+    void saveKeyInfo({ [trackId]: info }).catch(() => {})
+  }
+
+  const sortIndicator = (col: SortCol) =>
+    sortCol === col ? (sortDir === 1 ? ' ▲' : ' ▼') : ''
 
   if (error) {
     return (
@@ -170,7 +335,7 @@ export default function PlaylistDetail() {
   if (!tracks) return <div className="notice">Loading tracks…</div>
 
   return (
-    <div className={`playlist-detail${selectedTrack ? ' with-panel' : ''}`}>
+    <div className="playlist-detail">
       <div className="track-section">
         <div className="detail-header">
           <Link to="/" className="back-link">
@@ -193,39 +358,81 @@ export default function PlaylistDetail() {
               </span>
             )}
           </div>
+          <div className="toolbar">
+            <input
+              type="search"
+              className="filter-input"
+              placeholder="Filter by title or artist…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            {customOrder && (
+              <button className="toolbar-button" onClick={handleResetOrder}>
+                Reset to playlist order
+              </button>
+            )}
+            <span className="toolbar-hint">
+              {dragEnabled
+                ? 'Drag rows to sketch your mix order'
+                : 'Clear filter & sort by # to drag-reorder'}
+            </span>
+          </div>
         </div>
-        <table className="track-table">
-          <thead>
-            <tr>
-              <th className="col-num">#</th>
-              <th>Title</th>
-              <th>Artist</th>
-              <th>Album</th>
-              <th className="col-duration">Time</th>
-              <th className="col-bpm">BPM</th>
-              <th className="col-key">Key</th>
-            </tr>
-          </thead>
-          <tbody>
-            {tracks.map((t, i) => (
-              <TrackRow
-                key={`${t.id}-${i}`}
-                index={i + 1}
-                track={t}
-                info={keyInfo[t.id]}
-                selected={t.id === selectedId}
-                compatible={Boolean(
-                  compatSet &&
-                    t.id !== selectedId &&
-                    keyInfo[t.id]?.camelotKey &&
-                    compatSet.has(keyInfo[t.id].camelotKey!),
-                )}
-                lookupPending={!keyInfo[t.id] && pendingLookups > 0}
-                onClick={() => setSelectedId((prev) => (prev === t.id ? null : t.id))}
-              />
-            ))}
-          </tbody>
-        </table>
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <table className="track-table">
+            <thead>
+              <tr>
+                <th className="col-num sortable" onClick={() => handleSort('position')}>
+                  #{sortIndicator('position')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('title')}>
+                  Title{sortIndicator('title')}
+                </th>
+                <th className="sortable" onClick={() => handleSort('artist')}>
+                  Artist{sortIndicator('artist')}
+                </th>
+                <th>Album</th>
+                <th className="col-duration">Time</th>
+                <th className="col-bpm sortable" onClick={() => handleSort('bpm')}>
+                  BPM{sortIndicator('bpm')}
+                </th>
+                <th className="col-key sortable" onClick={() => handleSort('key')}>
+                  Key{sortIndicator('key')}
+                </th>
+              </tr>
+            </thead>
+            <SortableContext
+              items={displayItems.map((d) => d.uid)}
+              strategy={verticalListSortingStrategy}
+            >
+              <tbody>
+                {displayItems.map(({ track, uid, position }) => (
+                  <TrackRow
+                    key={uid}
+                    uid={uid}
+                    index={position}
+                    track={track}
+                    info={keyInfo[track.id]}
+                    selected={track.id === selectedId}
+                    compatible={Boolean(
+                      compatSet &&
+                        track.id !== selectedId &&
+                        keyInfo[track.id]?.camelotKey &&
+                        compatSet.has(keyInfo[track.id].camelotKey!),
+                    )}
+                    lookupPending={!keyInfo[track.id] && pendingLookups > 0}
+                    dragEnabled={dragEnabled}
+                    onClick={() => setSelectedId((prev) => (prev === track.id ? null : track.id))}
+                  />
+                ))}
+              </tbody>
+            </SortableContext>
+          </table>
+        </DndContext>
+        {displayItems.length === 0 && filterText && (
+          <div className="empty-filter">No tracks match "{filter.trim()}".</div>
+        )}
       </div>
 
       {selectedTrack && (
@@ -237,6 +444,7 @@ export default function PlaylistDetail() {
           lookupsRunning={pendingLookups > 0}
           onSelect={setSelectedId}
           onClose={() => setSelectedId(null)}
+          onSaveManual={(bpm, key) => handleManualSave(selectedTrack.id, bpm, key)}
         />
       )}
     </div>

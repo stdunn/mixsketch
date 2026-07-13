@@ -63,9 +63,12 @@ export function openKeyToCamelot(openKey: string): string | null {
 }
 
 /**
- * Harmonically compatible Camelot keys for standard mixing:
- * same key, ±1 on the wheel in the same ring, and the relative key (same number, other ring).
- * e.g. "8A" → ["8A", "7A", "9A", "8B"]
+ * Camelot keys that mix harmonically FROM the given key:
+ * - same key, and ±1 / ±2 on the wheel in the same ring
+ * - the relative key (same number, other ring)
+ * - energy switch: minor → major one number down, major → minor one number up
+ *   (5A → 4B, 8B → 9A)
+ * e.g. "8A" → ["8A", "7A", "9A", "6A", "10A", "8B", "7B"]
  */
 export function compatibleKeys(camelot: string): string[] {
   const m = camelot.match(/^(\d{1,2})([AB])$/)
@@ -74,7 +77,22 @@ export function compatibleKeys(camelot: string): string[] {
   if (n < 1 || n > 12) return []
   const ring = m[2]
   const otherRing = ring === 'A' ? 'B' : 'A'
-  const down = n === 1 ? 12 : n - 1
-  const up = n === 12 ? 1 : n + 1
-  return [`${n}${ring}`, `${down}${ring}`, `${up}${ring}`, `${n}${otherRing}`]
+  const wrap = (x: number) => ((x + 11) % 12) + 1
+  return [
+    `${n}${ring}`,
+    `${wrap(n - 1)}${ring}`,
+    `${wrap(n + 1)}${ring}`,
+    `${wrap(n - 2)}${ring}`,
+    `${wrap(n + 2)}${ring}`,
+    `${n}${otherRing}`,
+    ring === 'A' ? `${wrap(n - 1)}${otherRing}` : `${wrap(n + 1)}${otherRing}`,
+  ]
+}
+
+/** Sort value for Camelot codes: 1A, 1B, 2A, … 12B. Unknown keys sort last. */
+export function camelotSortValue(camelot: string | null | undefined): number {
+  if (!camelot) return Number.MAX_SAFE_INTEGER
+  const m = camelot.match(/^(\d{1,2})([AB])$/)
+  if (!m) return Number.MAX_SAFE_INTEGER
+  return Number(m[1]) * 2 + (m[2] === 'B' ? 1 : 0)
 }

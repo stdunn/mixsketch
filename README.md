@@ -8,8 +8,10 @@ the other tracks in the playlist that are harmonically compatible.
 > apps registered after Nov 27, 2024, but older apps still have access. MixSketch
 > probes the endpoint at runtime: if your Spotify app is grandfathered in, data
 > comes straight from Spotify (batched, fast); otherwise it falls back to
-> [GetSongBPM](https://getsongbpm.com). Results are cached in localStorage
-> either way.
+> [GetSongBPM](https://getsongbpm.com). Either way, results — along with manual
+> edits and your custom track orders — persist in a local SQLite database at
+> `data/mixsketch.db`, served through the Vite dev server (no separate backend;
+> uses Node 24's built-in `node:sqlite`).
 
 ## Setup
 
@@ -53,12 +55,22 @@ the other tracks in the playlist that are harmonically compatible.
   Camelot key columns (looked up lazily and cached, so the first visit to a
   playlist is slower than later ones).
 - **Click a track** to select it — a side panel shows every other track in the
-  playlist that's in key (same Camelot code, ±1 on the wheel in the same ring,
-  or the relative major/minor). Compatible rows also get a green key badge in
-  the table. Click a track in the panel to jump the selection to it.
+  playlist that mixes harmonically from it: same Camelot code, ±1 or ±2 on the
+  wheel in the same ring, the relative major/minor, and the energy switch
+  (minor → major one number down, major → minor one number up, e.g. 5A → 4B,
+  8B → 9A). Compatible rows also get a green key badge in the table. Click a
+  track in the panel to jump the selection to it.
+- **Edit BPM / key** in the side panel to correct or fill in values manually;
+  manual entries persist in SQLite and are never overwritten by lookups.
+- **Sort** by clicking the #, Title, Artist, BPM, or Key column headers
+  (Key sorts in Camelot order). **Filter** by title or artist with the search
+  box.
+- **Drag rows to sketch a mix order** (when sorted by # with no filter). The
+  custom order is saved per playlist and survives restarts; "Reset to playlist
+  order" puts Spotify's order back.
+- Sessions refresh their Spotify token automatically in the background, so you
+  won't have to reconnect after stepping away.
 
 ## Roadmap
 
-- Manual BPM/key overrides
-- Filter by title/artist, sort by BPM / Camelot key
-- Drag-and-drop mix ordering and saving as a new Spotify playlist
+- Saving a sketched order as a new Spotify playlist
