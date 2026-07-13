@@ -13,6 +13,8 @@
   --match-1: rgba(29, 185, 84, 0.32);
   --match-2: rgba(29, 185, 84, 0.17);
   --match-3: rgba(29, 185, 84, 0.08);
+  /* tier 4 (semitone +5/+7) uses amber: a different kind of move, not a fainter green */
+  --match-4: rgba(234, 179, 8, 0.1);
   color-scheme: dark;
 }
 
@@ -511,6 +513,10 @@ button.primary:hover {
   background: var(--match-3);
 }
 
+.track-row.compat-4 {
+  background: var(--match-4);
+}
+
 .key-badge.compat-1 {
   background: var(--match-1);
   border-color: var(--accent);
@@ -527,6 +533,12 @@ button.primary:hover {
   background: var(--match-3);
   border-color: rgba(29, 185, 84, 0.3);
   color: #47a871;
+}
+
+.key-badge.compat-4 {
+  background: var(--match-4);
+  border-color: rgba(234, 179, 8, 0.45);
+  color: #d4b13c;
 }
 
 .tier-heading {
@@ -547,6 +559,10 @@ button.primary:hover {
 
 .tier-heading.tier-3 {
   color: #47a871;
+}
+
+.tier-heading.tier-4 {
+  color: #d4b13c;
 }
 
 .col-num {

@@ -62,7 +62,7 @@ export function openKeyToCamelot(openKey: string): string | null {
   return `${camelotNum}${m[2] === 'm' ? 'A' : 'B'}`
 }
 
-export type CompatTier = 1 | 2 | 3
+export type CompatTier = 1 | 2 | 3 | 4
 
 /**
  * Harmonic-match quality tiers for mixing FROM the given key:
@@ -72,6 +72,8 @@ export type CompatTier = 1 | 2 | 3
  * - Tier 3 (workable): ±2 in the same ring, or the directional energy switch:
  *                     minor → major one number down, major → minor one number
  *                     up (5A ↔ 4B, 8B ↔ 9A — but never 4B → 3A)
+ * - Tier 4 (semitone): +5 or +7 in the same ring (1A → 6A / 8A) — a semitone
+ *                     down/up in pitch; mutual inverses, so symmetric
  */
 export function compatibilityTiers(camelot: string): Map<string, CompatTier> {
   const tiers = new Map<string, CompatTier>()
@@ -92,6 +94,9 @@ export function compatibilityTiers(camelot: string): Map<string, CompatTier> {
     ring === 'A' ? `${wrap(n - 1)}${otherRing}` : `${wrap(n + 1)}${otherRing}`,
   ]) {
     if (!tiers.has(k)) tiers.set(k, 3)
+  }
+  for (const k of [`${wrap(n + 5)}${ring}`, `${wrap(n + 7)}${ring}`]) {
+    if (!tiers.has(k)) tiers.set(k, 4)
   }
   return tiers
 }

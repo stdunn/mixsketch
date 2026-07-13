@@ -59,9 +59,12 @@ the other tracks in the playlist that are harmonically compatible.
   rows in the table get a green tint graded by match quality:
   - **Tier 1 (strongest green):** the exact same key
   - **Tier 2:** ±1 on the wheel in the same ring, or the relative major/minor
-  - **Tier 3 (subtlest):** ±2 in the same ring, or the directional energy
+  - **Tier 3 (subtlest green):** ±2 in the same ring, or the directional energy
     switch — minor pairs with the major one number down (5A ↔ 4B),
     major with the minor one number up (8B ↔ 9A), never the reverse
+  - **Tier 4 (amber):** +5 or +7 in the same ring (1A → 6A / 8A) — a semitone
+    shift in pitch, shown in a different color since it's a different kind of
+    move
 
   The panel groups matches by tier. Click a track in it to jump the selection.
 - **Edit BPM / key** in the side panel to correct or fill in values manually;

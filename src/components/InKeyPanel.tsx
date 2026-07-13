@@ -7,6 +7,7 @@ const TIER_LABELS: Record<CompatTier, string> = {
   1: 'Same key',
   2: 'Close · ±1 / relative',
   3: 'Workable · ±2 / energy switch',
+  4: 'Semitone · +5 / +7',
 }
 
 const CAMELOT_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((n) => [
