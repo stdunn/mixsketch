@@ -18,11 +18,12 @@ import {
 } from '../api/spotify'
 import {
   camelotSortValue,
-  compatibleKeys,
+  compatibilityTiers,
   musicalKeyToCamelot,
   openKeyToCamelot,
   pitchClassToCamelot,
   pitchClassToName,
+  type CompatTier,
 } from '../lib/camelot'
 import {
   clearPlaylistOrder,
@@ -267,19 +268,29 @@ export default function PlaylistDetail() {
   )
   const selectedKey = selectedId ? (keyInfo[selectedId]?.camelotKey ?? null) : null
 
-  const compatSet = useMemo(
-    () => (selectedKey ? new Set(compatibleKeys(selectedKey)) : null),
+  const tierMap = useMemo(
+    () => (selectedKey ? compatibilityTiers(selectedKey) : null),
     [selectedKey],
   )
 
   const inKeyTracks = useMemo(() => {
-    if (!selectedTrack || !compatSet) return []
-    return orderedTracks.filter((t) => {
-      if (t.id === selectedTrack.id) return false
+    if (!selectedTrack || !tierMap) return []
+    const matches: { track: Track; tier: CompatTier }[] = []
+    for (const t of orderedTracks) {
+      if (t.id === selectedTrack.id) continue
       const key = keyInfo[t.id]?.camelotKey
-      return Boolean(key && compatSet.has(key))
-    })
-  }, [orderedTracks, selectedTrack, compatSet, keyInfo])
+      const tier = key ? tierMap.get(key) : undefined
+      if (tier) matches.push({ track: t, tier })
+    }
+    // best matches first; within a tier keep Camelot order, then BPM
+    return matches.sort(
+      (a, b) =>
+        a.tier - b.tier ||
+        camelotSortValue(keyInfo[a.track.id]?.camelotKey) -
+          camelotSortValue(keyInfo[b.track.id]?.camelotKey) ||
+        (keyInfo[a.track.id]?.bpm ?? 0) - (keyInfo[b.track.id]?.bpm ?? 0),
+    )
+  }, [orderedTracks, selectedTrack, tierMap, keyInfo])
 
   const handleSort = (col: SortCol) => {
     if (col === sortCol) {
@@ -415,12 +426,12 @@ export default function PlaylistDetail() {
                     track={track}
                     info={keyInfo[track.id]}
                     selected={track.id === selectedId}
-                    compatible={Boolean(
-                      compatSet &&
+                    compatTier={
+                      (tierMap &&
                         track.id !== selectedId &&
-                        keyInfo[track.id]?.camelotKey &&
-                        compatSet.has(keyInfo[track.id].camelotKey!),
-                    )}
+                        tierMap.get(keyInfo[track.id]?.camelotKey ?? '')) ||
+                      null
+                    }
                     lookupPending={!keyInfo[track.id] && pendingLookups > 0}
                     dragEnabled={dragEnabled}
                     onClick={() => setSelectedId((prev) => (prev === track.id ? null : track.id))}

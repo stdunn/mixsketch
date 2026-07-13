@@ -7,8 +7,12 @@
   --text-dim: #9a9aa8;
   --accent: #1db954;
   --accent-soft: rgba(29, 185, 84, 0.16);
-  --selected: rgba(29, 185, 84, 0.22);
-  --key-badge-bg: #26263038;
+  /* selected track anchor = blue, so the green gradient reads as match quality */
+  --selected: rgba(59, 130, 246, 0.24);
+  --selected-border: #3b82f6;
+  --match-1: rgba(29, 185, 84, 0.32);
+  --match-2: rgba(29, 185, 84, 0.17);
+  --match-3: rgba(29, 185, 84, 0.08);
   color-scheme: dark;
 }
 
@@ -357,13 +361,63 @@ button.primary:hover {
 }
 
 .track-row.selected td {
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--selected-border);
 }
 
-.track-row.compatible .key-badge {
-  background: var(--accent-soft);
+.track-row.selected .key-badge {
+  border-color: var(--selected-border);
+  color: #93c5fd;
+}
+
+/* match-quality gradient: tier 1 (same key) → tier 3 (workable) */
+.track-row.compat-1 {
+  background: var(--match-1);
+}
+
+.track-row.compat-2 {
+  background: var(--match-2);
+}
+
+.track-row.compat-3 {
+  background: var(--match-3);
+}
+
+.key-badge.compat-1 {
+  background: var(--match-1);
   border-color: var(--accent);
-  color: var(--accent);
+  color: #6ee7a0;
+}
+
+.key-badge.compat-2 {
+  background: var(--match-2);
+  border-color: rgba(29, 185, 84, 0.55);
+  color: #5ccd8d;
+}
+
+.key-badge.compat-3 {
+  background: var(--match-3);
+  border-color: rgba(29, 185, 84, 0.3);
+  color: #47a871;
+}
+
+.tier-heading {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin: 12px 0 4px;
+  padding-left: 2px;
+}
+
+.tier-heading.tier-1 {
+  color: #6ee7a0;
+}
+
+.tier-heading.tier-2 {
+  color: #5ccd8d;
+}
+
+.tier-heading.tier-3 {
+  color: #47a871;
 }
 
 .col-num {

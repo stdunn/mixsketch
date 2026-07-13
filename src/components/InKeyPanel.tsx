@@ -1,6 +1,13 @@
 import { useState } from 'react'
+import type { CompatTier } from '../lib/camelot'
 import type { KeyInfoMap } from '../lib/keyStore'
 import type { Track, TrackKeyInfo } from '../types'
+
+const TIER_LABELS: Record<CompatTier, string> = {
+  1: 'Same key',
+  2: 'Close · ±1 / relative',
+  3: 'Workable · ±2 / energy switch',
+}
 
 const CAMELOT_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((n) => [
   `${n}A`,
@@ -10,7 +17,7 @@ const CAMELOT_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((n) 
 interface Props {
   track: Track
   info: TrackKeyInfo | undefined
-  inKeyTracks: Track[]
+  inKeyTracks: { track: Track; tier: CompatTier }[]
   keyInfo: KeyInfoMap
   lookupsRunning: boolean
   onSelect: (trackId: string) => void
@@ -121,12 +128,14 @@ export default function InKeyPanel({
         </p>
       ) : (
         <ul className="inkey-list">
-          {inKeyTracks.map((t) => {
+          {inKeyTracks.map(({ track: t, tier }, i) => {
             const tInfo = keyInfo[t.id]
+            const firstOfTier = i === 0 || inKeyTracks[i - 1].tier !== tier
             return (
               <li key={t.id}>
+                {firstOfTier && <div className={`tier-heading tier-${tier}`}>{TIER_LABELS[tier]}</div>}
                 <button className="inkey-item" onClick={() => onSelect(t.id)}>
-                  <span className="key-badge">{tInfo?.camelotKey}</span>
+                  <span className={`key-badge compat-${tier}`}>{tInfo?.camelotKey}</span>
                   <span className="inkey-item-text">
                     <span className="inkey-item-title">{t.title}</span>
                     <span className="inkey-item-artist">

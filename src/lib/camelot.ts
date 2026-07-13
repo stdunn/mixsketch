@@ -62,31 +62,43 @@ export function openKeyToCamelot(openKey: string): string | null {
   return `${camelotNum}${m[2] === 'm' ? 'A' : 'B'}`
 }
 
+export type CompatTier = 1 | 2 | 3
+
 /**
- * Camelot keys that mix harmonically FROM the given key:
- * - same key, and ±1 / ±2 on the wheel in the same ring
- * - the relative key (same number, other ring)
- * - energy switch: minor → major one number down, major → minor one number up
- *   (5A → 4B, 8B → 9A)
- * e.g. "8A" → ["8A", "7A", "9A", "6A", "10A", "8B", "7B"]
+ * Harmonic-match quality tiers for mixing FROM the given key:
+ * - Tier 1 (perfect): the exact same key
+ * - Tier 2 (close):   ±1 on the wheel in the same ring, or the relative key
+ *                     (same number, other ring)
+ * - Tier 3 (workable): ±2 in the same ring, or ±1 in the other ring
+ *                     (energy switch, e.g. 5A → 4B or 6B)
  */
-export function compatibleKeys(camelot: string): string[] {
+export function compatibilityTiers(camelot: string): Map<string, CompatTier> {
+  const tiers = new Map<string, CompatTier>()
   const m = camelot.match(/^(\d{1,2})([AB])$/)
-  if (!m) return []
+  if (!m) return tiers
   const n = Number(m[1])
-  if (n < 1 || n > 12) return []
+  if (n < 1 || n > 12) return tiers
   const ring = m[2]
   const otherRing = ring === 'A' ? 'B' : 'A'
   const wrap = (x: number) => ((x + 11) % 12) + 1
-  return [
-    `${n}${ring}`,
-    `${wrap(n - 1)}${ring}`,
-    `${wrap(n + 1)}${ring}`,
+  tiers.set(`${n}${ring}`, 1)
+  tiers.set(`${wrap(n - 1)}${ring}`, 2)
+  tiers.set(`${wrap(n + 1)}${ring}`, 2)
+  tiers.set(`${n}${otherRing}`, 2)
+  for (const k of [
     `${wrap(n - 2)}${ring}`,
     `${wrap(n + 2)}${ring}`,
-    `${n}${otherRing}`,
-    ring === 'A' ? `${wrap(n - 1)}${otherRing}` : `${wrap(n + 1)}${otherRing}`,
-  ]
+    `${wrap(n - 1)}${otherRing}`,
+    `${wrap(n + 1)}${otherRing}`,
+  ]) {
+    if (!tiers.has(k)) tiers.set(k, 3)
+  }
+  return tiers
+}
+
+/** All Camelot keys that mix harmonically FROM the given key (any tier). */
+export function compatibleKeys(camelot: string): string[] {
+  return [...compatibilityTiers(camelot).keys()]
 }
 
 /** Sort value for Camelot codes: 1A, 1B, 2A, … 12B. Unknown keys sort last. */

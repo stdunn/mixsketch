@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import type { CompatTier } from '../lib/camelot'
 import type { Track, TrackKeyInfo } from '../types'
 
 function formatDuration(ms: number): string {
@@ -17,8 +18,8 @@ interface Props {
   track: Track
   info: TrackKeyInfo | undefined
   selected: boolean
-  /** true when a track is selected and this row's key is harmonically compatible */
-  compatible: boolean
+  /** match quality vs. the selected track: 1 same key, 2 close, 3 workable, null no match */
+  compatTier: CompatTier | null
   /** true while this track's key data is still being looked up */
   lookupPending: boolean
   dragEnabled: boolean
@@ -31,7 +32,7 @@ export default function TrackRow({
   track,
   info,
   selected,
-  compatible,
+  compatTier,
   lookupPending,
   dragEnabled,
   onClick,
@@ -45,7 +46,7 @@ export default function TrackRow({
   const pendingMark = lookupPending ? <span className="pending">…</span> : '—'
   const classes = ['track-row']
   if (selected) classes.push('selected')
-  if (compatible) classes.push('compatible')
+  if (compatTier) classes.push(`compat-${compatTier}`)
   if (isDragging) classes.push('dragging')
   if (dragEnabled) classes.push('draggable')
 

@@ -54,12 +54,15 @@ the other tracks in the playlist that are harmonically compatible.
 - The home page lists your playlists; click one to see its tracks with BPM and
   Camelot key columns (looked up lazily and cached, so the first visit to a
   playlist is slower than later ones).
-- **Click a track** to select it — a side panel shows every other track in the
-  playlist that mixes harmonically from it: same Camelot code, ±1 or ±2 on the
-  wheel in the same ring, the relative major/minor, and the energy switch
-  (minor → major one number down, major → minor one number up, e.g. 5A → 4B,
-  8B → 9A). Compatible rows also get a green key badge in the table. Click a
-  track in the panel to jump the selection to it.
+- **Click a track** to select it (blue highlight) — a side panel lists every
+  other track in the playlist that mixes harmonically from it, and matching
+  rows in the table get a green tint graded by match quality:
+  - **Tier 1 (strongest green):** the exact same key
+  - **Tier 2:** ±1 on the wheel in the same ring, or the relative major/minor
+  - **Tier 3 (subtlest):** ±2 in the same ring, or ±1 in the other ring
+    (energy switch, e.g. 5A → 4B/6B)
+
+  The panel groups matches by tier. Click a track in it to jump the selection.
 - **Edit BPM / key** in the side panel to correct or fill in values manually;
   manual entries persist in SQLite and are never overwritten by lookups.
 - **Sort** by clicking the #, Title, Artist, BPM, or Key column headers
