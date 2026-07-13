@@ -401,6 +401,18 @@ export default function PlaylistDetail() {
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <table className="track-table">
+            {/* fixed layout: long titles ellipsize instead of widening the
+                table underneath the in-key panel */}
+            <colgroup>
+              <col style={{ width: 34 }} />
+              <col style={{ width: 32 }} />
+              <col />
+              <col style={{ width: '22%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 52 }} />
+              <col style={{ width: 56 }} />
+            </colgroup>
             <thead>
               <tr>
                 <th className="col-num sortable" onClick={() => handleSort('position')}>

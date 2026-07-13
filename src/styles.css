@@ -354,6 +354,7 @@ button.primary:hover {
 .track-section {
   flex: 1;
   min-width: 0;
+  overflow-x: auto;
 }
 
 .detail-header {
@@ -434,6 +435,7 @@ button.primary:hover {
 .track-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .track-table th {
@@ -456,7 +458,6 @@ button.primary:hover {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 280px;
 }
 
 .track-table th.sortable {
