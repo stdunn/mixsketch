@@ -79,6 +79,9 @@ the other tracks in the playlist that are harmonically compatible.
 - **Drag rows to sketch a mix order** (when sorted by # with no filter). The
   custom order is saved per playlist and survives restarts; "Reset to playlist
   order" puts Spotify's order back.
+- **Remove a track** with the ⋯ button at the right edge of its row →
+  "Remove from playlist" — this edits the real Spotify playlist (works on
+  playlists you own; duplicates are removed one copy at a time).
 - **Playback**: hover a row (or select a track) and hit ▶ to play it right in
   the app via Spotify's Web Playback SDK — the tab shows up as a "MixSketch"
   device in Spotify Connect. The bottom player bar has play/pause, a seek

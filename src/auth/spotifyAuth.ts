@@ -3,9 +3,10 @@ import { generateCodeVerifier, computeCodeChallenge } from './pkce'
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID as string | undefined
 const REDIRECT_URI = `${window.location.origin}/callback`
 // streaming + user-read-email/private are required by the Web Playback SDK;
-// user-modify/read-playback-state drive playback on the in-app device.
+// user-modify/read-playback-state drive playback on the in-app device;
+// playlist-modify-* allow removing tracks from (and later saving) playlists.
 const SCOPES =
-  'playlist-read-private playlist-read-collaborative streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state'
+  'playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state'
 const TOKEN_KEY = 'mixsketch:tokens'
 const VERIFIER_KEY = 'mixsketch:pkce-verifier'
 

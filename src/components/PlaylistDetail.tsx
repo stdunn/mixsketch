@@ -16,6 +16,7 @@ import {
   getPlaylistMeta,
   getPlaylistTracks,
   playTrack,
+  removeTrackFromPlaylist,
 } from '../api/spotify'
 import { getPlayerState, subscribePlayer } from '../player/spotifyPlayer'
 import {
@@ -77,6 +78,7 @@ export default function PlaylistDetail() {
   const [pendingLookups, setPendingLookups] = useState(0)
   const [afStatus, setAfStatus] = useState(audioFeaturesAvailability())
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const playerState = useSyncExternalStore(subscribePlayer, getPlayerState)
@@ -332,6 +334,45 @@ export default function PlaylistDetail() {
     void clearPlaylistOrder(id).catch(() => {})
   }
 
+  const handleRemove = async (track: Track, uid: string) => {
+    if (!id || !tracks) return
+    setActionError(null)
+    // indices of this track in Spotify's playlist order (duplicates possible)
+    const spotifyPositions = tracks.reduce<number[]>((acc, t, i) => {
+      if (t.id === track.id) acc.push(i)
+      return acc
+    }, [])
+    if (spotifyPositions.length === 0) return
+    const occ = Number(uid.split('#')[1] ?? '0')
+    const removeIdx = spotifyPositions[Math.min(occ, spotifyPositions.length - 1)]
+    try {
+      // single copy: remove by URI; duplicates: pin one occurrence by position
+      await removeTrackFromPlaylist(
+        id,
+        track.uri,
+        spotifyPositions.length > 1 ? removeIdx : undefined,
+      )
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setActionError(
+        msg.includes('403')
+          ? `Spotify wouldn't allow removing "${track.title}" — you can only edit playlists you own.`
+          : `Couldn't remove "${track.title}": ${msg}`,
+      )
+      return
+    }
+    setTracks((prev) => (prev ? prev.filter((_, i) => i !== removeIdx) : prev))
+    if (customOrder) {
+      const idx = customOrder.indexOf(track.id)
+      if (idx !== -1) {
+        const next = customOrder.filter((_, i) => i !== idx)
+        setCustomOrder(next)
+        void savePlaylistOrder(id, next).catch(() => {})
+      }
+    }
+    if (selectedId === track.id && spotifyPositions.length === 1) setSelectedId(null)
+  }
+
   const handleManualSave = (trackId: string, bpm: number | null, camelotKey: string | null) => {
     const info: TrackKeyInfo = {
       bpm,
@@ -401,6 +442,7 @@ export default function PlaylistDetail() {
                 : 'Clear filter & sort by # to drag-reorder'}
             </span>
           </div>
+          {actionError && <div className="action-error">{actionError}</div>}
         </div>
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -416,6 +458,7 @@ export default function PlaylistDetail() {
               <col style={{ width: 52 }} />
               <col style={{ width: 52 }} />
               <col style={{ width: 56 }} />
+              <col style={{ width: 36 }} />
             </colgroup>
             <thead>
               <tr>
@@ -437,6 +480,7 @@ export default function PlaylistDetail() {
                 <th className="col-key sortable" onClick={() => handleSort('key')}>
                   Key{sortIndicator('key')}
                 </th>
+                <th className="col-options" aria-label="Options" />
               </tr>
             </thead>
             <SortableContext
@@ -462,6 +506,7 @@ export default function PlaylistDetail() {
                     dragEnabled={dragEnabled}
                     onPlay={playerDeviceId ? () => handlePlay(track.uri) : null}
                     onClick={() => setSelectedId((prev) => (prev === track.id ? null : track.id))}
+                    onRemove={() => void handleRemove(track, uid)}
                   />
                 ))}
               </tbody>

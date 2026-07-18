@@ -229,6 +229,86 @@ code {
   opacity: 0.35;
 }
 
+/* ---------- per-row options menu ---------- */
+
+.col-options {
+  padding-left: 0;
+  padding-right: 4px;
+}
+
+.options-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.options-button {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-dim);
+  width: 24px;
+  height: 24px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.track-row:hover .options-button,
+.options-button:focus-visible,
+.options-button.open {
+  opacity: 1;
+}
+
+.options-button:hover,
+.options-button.open {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.options-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.options-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.options-item:hover {
+  background: var(--surface-hover);
+}
+
+.options-item.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.action-error {
+  color: #f87171;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
 .page-title {
   font-size: 24px;
   margin: 0 0 16px;

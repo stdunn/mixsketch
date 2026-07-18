@@ -142,6 +142,33 @@ export async function getPlaylistMeta(id: string): Promise<Playlist> {
   return mapPlaylist(raw)
 }
 
+/**
+ * Remove a track from a playlist. Removing by URI alone deletes every copy of
+ * the track, so when the playlist contains duplicates pass `position` (index
+ * in Spotify's playlist order) to pin a single occurrence — that variant needs
+ * the playlist's current snapshot id, fetched here.
+ */
+export async function removeTrackFromPlaylist(
+  playlistId: string,
+  uri: string,
+  position?: number,
+): Promise<void> {
+  const body: { tracks: { uri: string; positions?: number[] }[]; snapshot_id?: string } = {
+    tracks: [{ uri }],
+  }
+  if (position !== undefined) {
+    const { snapshot_id } = await spotifyFetch<{ snapshot_id: string }>(
+      `/playlists/${playlistId}?fields=snapshot_id`,
+    )
+    body.tracks[0].positions = [position]
+    body.snapshot_id = snapshot_id
+  }
+  await spotifyFetch<void>(`/playlists/${playlistId}/tracks`, {
+    method: 'DELETE',
+    body: JSON.stringify(body),
+  })
+}
+
 /** Start playback of a track on the in-app Web Playback SDK device. */
 export async function playTrack(deviceId: string, uri: string): Promise<void> {
   await spotifyFetch<void>(`/me/player/play?device_id=${encodeURIComponent(deviceId)}`, {
