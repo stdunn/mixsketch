@@ -4,10 +4,11 @@ import type { KeyInfoMap } from '../lib/keyStore'
 import type { Track, TrackKeyInfo } from '../types'
 
 const TIER_LABELS: Record<CompatTier, string> = {
-  1: 'Same key',
-  2: 'Close · ±1 / relative',
-  3: 'Workable · ±2 / energy switch',
-  4: 'Semitone · +5 / +7',
+  1: 'Perfect · same key',
+  2: 'Strong · ±1 / relative',
+  3: 'Good · ±2 / energy switch',
+  4: 'Mood flip · parallel key',
+  5: 'Spicy · semitone shift',
 }
 
 const CAMELOT_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((n) => [
@@ -20,6 +21,8 @@ interface Props {
   info: TrackKeyInfo | undefined
   inKeyTracks: { track: Track; tier: CompatTier }[]
   keyInfo: KeyInfoMap
+  /** the selected track's BPM, for showing tempo deltas */
+  selectedBpm: number | null
   lookupsRunning: boolean
   onSelect: (trackId: string) => void
   onClose: () => void
@@ -84,6 +87,7 @@ export default function InKeyPanel({
   info,
   inKeyTracks,
   keyInfo,
+  selectedBpm,
   lookupsRunning,
   onSelect,
   onClose,
@@ -144,6 +148,15 @@ export default function InKeyPanel({
           {inKeyTracks.map(({ track: t, tier }, i) => {
             const tInfo = keyInfo[t.id]
             const firstOfTier = i === 0 || inKeyTracks[i - 1].tier !== tier
+            const bpm = tInfo?.bpm
+            let bpmText = ''
+            if (bpm != null) {
+              bpmText = ` · ${Math.round(bpm)} BPM`
+              if (selectedBpm != null) {
+                const delta = Math.round(bpm) - Math.round(selectedBpm)
+                bpmText += delta === 0 ? ' (=)' : ` (${delta > 0 ? '+' : ''}${delta})`
+              }
+            }
             return (
               <li key={t.id}>
                 {firstOfTier && <div className={`tier-heading tier-${tier}`}>{TIER_LABELS[tier]}</div>}
@@ -153,7 +166,7 @@ export default function InKeyPanel({
                     <span className="inkey-item-title">{t.title}</span>
                     <span className="inkey-item-artist">
                       {t.artists.join(', ')}
-                      {tInfo?.bpm != null ? ` · ${Math.round(tInfo.bpm)} BPM` : ''}
+                      {bpmText}
                     </span>
                   </span>
                 </button>

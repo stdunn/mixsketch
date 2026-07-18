@@ -56,17 +56,21 @@ the other tracks in the playlist that are harmonically compatible.
   playlist is slower than later ones).
 - **Click a track** to select it (blue highlight) — a side panel lists every
   other track in the playlist that mixes harmonically from it, and matching
-  rows in the table get a green tint graded by match quality:
-  - **Tier 1 (strongest green):** the exact same key
-  - **Tier 2:** ±1 on the wheel in the same ring, or the relative major/minor
-  - **Tier 3 (subtlest green):** ±2 in the same ring, or the directional energy
-    switch — minor pairs with the major one number down (5A ↔ 4B),
-    major with the minor one number up (8B ↔ 9A), never the reverse
-  - **Tier 4 (amber):** +5 or +7 in the same ring (1A → 6A / 8A) — a semitone
-    shift in pitch, shown in a different color since it's a different kind of
-    move
+  rows get a traffic-light tint from green (best) to orange (sketchiest):
+  - **Perfect (green):** the exact same key
+  - **Strong (light green):** ±1 on the wheel in the same ring, or the
+    relative major/minor
+  - **Good (lime):** ±2 in the same ring, or the directional energy switch —
+    minor pairs with the major one number down (5A ↔ 4B), major with the
+    minor one number up (8B ↔ 9A), never the reverse
+  - **Mood flip (amber):** the parallel key — same tonic, other mode
+    (8A ↔ 11B, i.e. A minor ↔ A major)
+  - **Spicy (orange):** +5 or +7 in the same ring (1A → 6A / 8A) — a semitone
+    shift in pitch
 
-  The panel groups matches by tier. Click a track in it to jump the selection.
+  The panel groups matches by tier, best first; within a tier the closest
+  tempo to the selected track sorts first, and each entry shows its BPM delta
+  (e.g. "128 BPM (+2)"). Click a track in the panel to jump the selection.
 - **Edit BPM / key** in the side panel to correct or fill in values manually;
   manual entries persist in SQLite and are never overwritten by lookups.
 - **Sort** by clicking the #, Title, Artist, BPM, or Key column headers

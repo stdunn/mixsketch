@@ -10,11 +10,12 @@
   /* selected track anchor = blue, so the green gradient reads as match quality */
   --selected: rgba(59, 130, 246, 0.24);
   --selected-border: #3b82f6;
+  /* traffic-light match gradient: green (best) → lime → amber → orange (sketchiest) */
   --match-1: rgba(29, 185, 84, 0.32);
-  --match-2: rgba(29, 185, 84, 0.17);
-  --match-3: rgba(29, 185, 84, 0.08);
-  /* tier 4 (semitone +5/+7) uses amber: a different kind of move, not a fainter green */
-  --match-4: rgba(234, 179, 8, 0.1);
+  --match-2: rgba(29, 185, 84, 0.15);
+  --match-3: rgba(163, 230, 53, 0.13);
+  --match-4: rgba(245, 158, 11, 0.12);
+  --match-5: rgba(249, 115, 22, 0.13);
   color-scheme: dark;
 }
 
@@ -517,6 +518,10 @@ button.primary:hover {
   background: var(--match-4);
 }
 
+.track-row.compat-5 {
+  background: var(--match-5);
+}
+
 .key-badge.compat-1 {
   background: var(--match-1);
   border-color: var(--accent);
@@ -531,14 +536,20 @@ button.primary:hover {
 
 .key-badge.compat-3 {
   background: var(--match-3);
-  border-color: rgba(29, 185, 84, 0.3);
-  color: #47a871;
+  border-color: rgba(163, 230, 53, 0.45);
+  color: #b5d96b;
 }
 
 .key-badge.compat-4 {
   background: var(--match-4);
-  border-color: rgba(234, 179, 8, 0.45);
-  color: #d4b13c;
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #d4a13c;
+}
+
+.key-badge.compat-5 {
+  background: var(--match-5);
+  border-color: rgba(249, 115, 22, 0.5);
+  color: #e08b4e;
 }
 
 .tier-heading {
@@ -558,11 +569,15 @@ button.primary:hover {
 }
 
 .tier-heading.tier-3 {
-  color: #47a871;
+  color: #b5d96b;
 }
 
 .tier-heading.tier-4 {
-  color: #d4b13c;
+  color: #d4a13c;
+}
+
+.tier-heading.tier-5 {
+  color: #e08b4e;
 }
 
 .col-num {

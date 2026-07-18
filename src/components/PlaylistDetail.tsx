@@ -291,14 +291,18 @@ export default function PlaylistDetail() {
       const tier = key ? tierMap.get(key) : undefined
       if (tier) matches.push({ track: t, tier })
     }
-    // best matches first; within a tier keep Camelot order, then BPM
-    return matches.sort(
-      (a, b) =>
-        a.tier - b.tier ||
-        camelotSortValue(keyInfo[a.track.id]?.camelotKey) -
-          camelotSortValue(keyInfo[b.track.id]?.camelotKey) ||
-        (keyInfo[a.track.id]?.bpm ?? 0) - (keyInfo[b.track.id]?.bpm ?? 0),
-    )
+    // best tier first; within a tier, closest tempo to the selected track first
+    const selBpm = keyInfo[selectedTrack.id]?.bpm ?? null
+    return matches.sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier
+      const ba = keyInfo[a.track.id]?.bpm ?? null
+      const bb = keyInfo[b.track.id]?.bpm ?? null
+      if (ba === null && bb === null) return 0
+      if (ba === null) return 1
+      if (bb === null) return -1
+      if (selBpm !== null) return Math.abs(ba - selBpm) - Math.abs(bb - selBpm)
+      return ba - bb
+    })
   }, [orderedTracks, selectedTrack, tierMap, keyInfo])
 
   const handleSort = (col: SortCol) => {
@@ -475,6 +479,7 @@ export default function PlaylistDetail() {
           info={keyInfo[selectedTrack.id]}
           inKeyTracks={inKeyTracks}
           keyInfo={keyInfo}
+          selectedBpm={keyInfo[selectedTrack.id]?.bpm ?? null}
           lookupsRunning={pendingLookups > 0}
           onSelect={setSelectedId}
           onClose={() => setSelectedId(null)}
