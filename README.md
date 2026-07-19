@@ -70,7 +70,9 @@ the other tracks in the playlist that are harmonically compatible.
 
   The panel groups matches by tier, best first; within a tier the closest
   tempo to the selected track sorts first, and each entry shows its BPM delta
-  (e.g. "128 BPM (+2)"). Click a track in the panel to jump the selection.
+  (e.g. "128 BPM (+2)"). Click a track in the panel to jump the selection —
+  or **drag a match out of the panel onto the table** to move that track to
+  wherever you drop it, exactly as if you'd dragged its row.
 - **Edit BPM / key** in the side panel to correct or fill in values manually;
   manual entries persist in SQLite and are never overwritten by lookups.
 - **Sort** by clicking the #, Title, Artist, BPM, or Key column headers

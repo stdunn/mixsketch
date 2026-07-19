@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDraggable } from '@dnd-kit/core'
 import type { CompatTier } from '../lib/camelot'
 import type { KeyInfoMap } from '../lib/keyStore'
 import type { Track, TrackKeyInfo } from '../types'
@@ -19,11 +20,13 @@ const CAMELOT_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1).flatMap((n) 
 interface Props {
   track: Track
   info: TrackKeyInfo | undefined
-  inKeyTracks: { track: Track; tier: CompatTier }[]
+  inKeyTracks: { track: Track; uid: string; tier: CompatTier }[]
   keyInfo: KeyInfoMap
   /** the selected track's BPM, for showing tempo deltas */
   selectedBpm: number | null
   lookupsRunning: boolean
+  /** when true, panel items can be dragged into the table to reorder */
+  dragEnabled: boolean
   onSelect: (trackId: string) => void
   onClose: () => void
   onSaveManual: (bpm: number | null, camelotKey: string | null) => void
@@ -82,6 +85,49 @@ function ManualEditForm({
   )
 }
 
+/** One match row — draggable into the track table, mirroring that track's row. */
+function InKeyItem({
+  uid,
+  track,
+  tier,
+  camelotKey,
+  bpmText,
+  draggable,
+  onSelect,
+}: {
+  uid: string
+  track: Track
+  tier: CompatTier
+  camelotKey: string | null | undefined
+  bpmText: string
+  draggable: boolean
+  onSelect: () => void
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `panel:${uid}`,
+    disabled: !draggable,
+  })
+  return (
+    <button
+      ref={setNodeRef}
+      className={`inkey-item${isDragging ? ' dragging' : ''}`}
+      onClick={onSelect}
+      title={draggable ? 'Click to select · drag into the table to move it' : undefined}
+      {...attributes}
+      {...listeners}
+    >
+      <span className={`key-badge compat-${tier}`}>{camelotKey}</span>
+      <span className="inkey-item-text">
+        <span className="inkey-item-title">{track.title}</span>
+        <span className="inkey-item-artist">
+          {track.artists.join(', ')}
+          {bpmText}
+        </span>
+      </span>
+    </button>
+  )
+}
+
 export default function InKeyPanel({
   track,
   info,
@@ -89,6 +135,7 @@ export default function InKeyPanel({
   keyInfo,
   selectedBpm,
   lookupsRunning,
+  dragEnabled,
   onSelect,
   onClose,
   onSaveManual,
@@ -144,36 +191,42 @@ export default function InKeyPanel({
           {lookupsRunning ? ' (yet — lookups still running)' : ''}.
         </p>
       ) : (
-        <ul className="inkey-list">
-          {inKeyTracks.map(({ track: t, tier }, i) => {
-            const tInfo = keyInfo[t.id]
-            const firstOfTier = i === 0 || inKeyTracks[i - 1].tier !== tier
-            const bpm = tInfo?.bpm
-            let bpmText = ''
-            if (bpm != null) {
-              bpmText = ` · ${Math.round(bpm)} BPM`
-              if (selectedBpm != null) {
-                const delta = Math.round(bpm) - Math.round(selectedBpm)
-                bpmText += delta === 0 ? ' (=)' : ` (${delta > 0 ? '+' : ''}${delta})`
+        <>
+          {dragEnabled && (
+            <p className="inkey-hint">Drag a match into the table to place it in your mix.</p>
+          )}
+          <ul className="inkey-list">
+            {inKeyTracks.map(({ track: t, uid, tier }, i) => {
+              const tInfo = keyInfo[t.id]
+              const firstOfTier = i === 0 || inKeyTracks[i - 1].tier !== tier
+              const bpm = tInfo?.bpm
+              let bpmText = ''
+              if (bpm != null) {
+                bpmText = ` · ${Math.round(bpm)} BPM`
+                if (selectedBpm != null) {
+                  const delta = Math.round(bpm) - Math.round(selectedBpm)
+                  bpmText += delta === 0 ? ' (=)' : ` (${delta > 0 ? '+' : ''}${delta})`
+                }
               }
-            }
-            return (
-              <li key={t.id}>
-                {firstOfTier && <div className={`tier-heading tier-${tier}`}>{TIER_LABELS[tier]}</div>}
-                <button className="inkey-item" onClick={() => onSelect(t.id)}>
-                  <span className={`key-badge compat-${tier}`}>{tInfo?.camelotKey}</span>
-                  <span className="inkey-item-text">
-                    <span className="inkey-item-title">{t.title}</span>
-                    <span className="inkey-item-artist">
-                      {t.artists.join(', ')}
-                      {bpmText}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+              return (
+                <li key={uid}>
+                  {firstOfTier && (
+                    <div className={`tier-heading tier-${tier}`}>{TIER_LABELS[tier]}</div>
+                  )}
+                  <InKeyItem
+                    uid={uid}
+                    track={t}
+                    tier={tier}
+                    camelotKey={tInfo?.camelotKey}
+                    bpmText={bpmText}
+                    draggable={dragEnabled}
+                    onSelect={() => onSelect(t.id)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
     </aside>
   )

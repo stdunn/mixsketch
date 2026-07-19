@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { hasGetSongBpmKey, lookupTrack } from '../api/getsongbpm'
@@ -42,6 +44,10 @@ import TrackRow from './TrackRow'
 
 // GetSongBPM's free tier is rate-limited; space out sequential lookups.
 const LOOKUP_DELAY_MS = 400
+
+// drag ids for in-key panel items: `panel:<row uid>`, so a panel drag acts
+// exactly like dragging that track's row in the table
+const PANEL_DRAG_PREFIX = 'panel:'
 
 type SortCol = 'position' | 'title' | 'artist' | 'bpm' | 'key'
 
@@ -79,6 +85,8 @@ export default function PlaylistDetail() {
   const [afStatus, setAfStatus] = useState(audioFeaturesAvailability())
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  /** row uid of the in-key panel item currently being dragged (for the overlay chip) */
+  const [panelDragUid, setPanelDragUid] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const playerState = useSyncExternalStore(subscribePlayer, getPlayerState)
@@ -286,12 +294,12 @@ export default function PlaylistDetail() {
 
   const inKeyTracks = useMemo(() => {
     if (!selectedTrack || !tierMap) return []
-    const matches: { track: Track; tier: CompatTier }[] = []
-    for (const t of orderedTracks) {
+    const matches: { track: Track; uid: string; tier: CompatTier }[] = []
+    for (const { track: t, uid } of orderedItems) {
       if (t.id === selectedTrack.id) continue
       const key = keyInfo[t.id]?.camelotKey
       const tier = key ? tierMap.get(key) : undefined
-      if (tier) matches.push({ track: t, tier })
+      if (tier) matches.push({ track: t, uid, tier })
     }
     // best tier first; within a tier, closest tempo to the selected track first
     const selBpm = keyInfo[selectedTrack.id]?.bpm ?? null
@@ -305,7 +313,7 @@ export default function PlaylistDetail() {
       if (selBpm !== null) return Math.abs(ba - selBpm) - Math.abs(bb - selBpm)
       return ba - bb
     })
-  }, [orderedTracks, selectedTrack, tierMap, keyInfo])
+  }, [orderedItems, selectedTrack, tierMap, keyInfo])
 
   const handleSort = (col: SortCol) => {
     if (col === sortCol) {
@@ -316,13 +324,26 @@ export default function PlaylistDetail() {
     }
   }
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const aid = String(event.active.id)
+    setPanelDragUid(aid.startsWith(PANEL_DRAG_PREFIX) ? aid.slice(PANEL_DRAG_PREFIX.length) : null)
+  }
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setPanelDragUid(null)
     const { active, over } = event
-    if (!id || !over || active.id === over.id) return
+    if (!id || !over) return
+    // a panel-item drag stands in for dragging that track's table row
+    const activeId = String(active.id)
+    const activeUid = activeId.startsWith(PANEL_DRAG_PREFIX)
+      ? activeId.slice(PANEL_DRAG_PREFIX.length)
+      : activeId
+    const overId = String(over.id)
+    if (overId.startsWith(PANEL_DRAG_PREFIX) || activeUid === overId) return
     const uids = orderedItems.map((d) => d.uid)
-    const from = uids.indexOf(String(active.id))
-    const to = uids.indexOf(String(over.id))
-    if (from === -1 || to === -1) return
+    const from = uids.indexOf(activeUid)
+    const to = uids.indexOf(overId)
+    if (from === -1 || to === -1 || from === to) return
     const ids = arrayMove(orderedTracks, from, to).map((t) => t.id)
     setCustomOrder(ids)
     void savePlaylistOrder(id, ids).catch(() => {})
@@ -399,8 +420,21 @@ export default function PlaylistDetail() {
   }
   if (!tracks) return <div className="notice">Loading tracks…</div>
 
+  const panelDragTrack = panelDragUid
+    ? (orderedItems.find((d) => d.uid === panelDragUid)?.track ?? null)
+    : null
+
   return (
     <div className="playlist-detail">
+      {/* one DndContext spans the table and the in-key panel so matches can
+          be dragged straight into the playlist */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setPanelDragUid(null)}
+      >
       <div className="track-section">
         <div className="detail-header">
           <Link to="/" className="back-link">
@@ -445,8 +479,7 @@ export default function PlaylistDetail() {
           {actionError && <div className="action-error">{actionError}</div>}
         </div>
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <table className="track-table">
+        <table className="track-table">
             {/* fixed layout: long titles ellipsize instead of widening the
                 table underneath the in-key panel */}
             <colgroup>
@@ -511,8 +544,7 @@ export default function PlaylistDetail() {
                 ))}
               </tbody>
             </SortableContext>
-          </table>
-        </DndContext>
+        </table>
         {displayItems.length === 0 && filterText && (
           <div className="empty-filter">No tracks match "{filter.trim()}".</div>
         )}
@@ -526,12 +558,26 @@ export default function PlaylistDetail() {
           keyInfo={keyInfo}
           selectedBpm={keyInfo[selectedTrack.id]?.bpm ?? null}
           lookupsRunning={pendingLookups > 0}
+          dragEnabled={dragEnabled}
           onSelect={setSelectedId}
           onClose={() => setSelectedId(null)}
           onSaveManual={(bpm, key) => handleManualSave(selectedTrack.id, bpm, key)}
           onPlay={playerDeviceId ? () => handlePlay(selectedTrack.uri) : null}
         />
       )}
+
+      {/* ghost chip that follows the cursor while dragging a panel match */}
+      <DragOverlay dropAnimation={null}>
+        {panelDragTrack && (
+          <div className="drag-chip">
+            <span className="key-badge">
+              {keyInfo[panelDragTrack.id]?.camelotKey ?? '—'}
+            </span>
+            <span className="drag-chip-title">{panelDragTrack.title}</span>
+          </div>
+        )}
+      </DragOverlay>
+      </DndContext>
     </div>
   )
 }
