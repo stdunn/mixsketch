@@ -81,6 +81,10 @@ the other tracks in the playlist that are harmonically compatible.
 - **Drag rows to sketch a mix order** (when sorted by # with no filter). The
   custom order is saved per playlist and survives restarts; "Reset to playlist
   order" puts Spotify's order back.
+- **Duplicate playlist** (top right of the toolbar) creates a new private
+  Spotify playlist containing the tracks in your current sketch order — you
+  pick the name first. Great for freezing a finished sketch without touching
+  the original playlist.
 - **Remove a track** with the ⋯ button at the right edge of its row →
   "Remove from playlist" — this edits the real Spotify playlist (works on
   playlists you own; duplicates are removed one copy at a time).
@@ -94,4 +98,4 @@ the other tracks in the playlist that are harmonically compatible.
 
 ## Roadmap
 
-- Saving a sketched order as a new Spotify playlist
+- Reordering the original playlist on Spotify to match a sketch

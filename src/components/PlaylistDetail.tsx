@@ -15,7 +15,9 @@ import {
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { hasGetSongBpmKey, lookupTrack } from '../api/getsongbpm'
 import {
+  addTracksToPlaylist,
   audioFeaturesAvailability,
+  createPlaylist,
   getAudioFeatures,
   getPlaylistMeta,
   getPlaylistTracks,
@@ -95,6 +97,15 @@ export default function PlaylistDetail() {
   const [actionError, setActionError] = useState<string | null>(null)
   /** row uid of the in-key panel item currently being dragged (for the overlay chip) */
   const [panelDragUid, setPanelDragUid] = useState<string | null>(null)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [duplicateName, setDuplicateName] = useState('')
+  const [duplicating, setDuplicating] = useState(false)
+  const [duplicateError, setDuplicateError] = useState<string | null>(null)
+  const [duplicateSuccess, setDuplicateSuccess] = useState<{
+    name: string
+    url: string
+    count: number
+  } | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const playerState = useSyncExternalStore(subscribePlayer, getPlayerState)
@@ -411,6 +422,43 @@ export default function PlaylistDetail() {
     if (selectedId === track.id && spotifyPositions.length === 1) setSelectedId(null)
   }
 
+  const openDuplicate = () => {
+    setDuplicateName(`${meta?.name ?? 'Playlist'} (sketch)`)
+    setDuplicateError(null)
+    setDuplicateOpen(true)
+  }
+
+  const handleDuplicate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (duplicating) return
+    const name = duplicateName.trim()
+    if (!name) return
+    setDuplicating(true)
+    setDuplicateError(null)
+    try {
+      const created = await createPlaylist(
+        name,
+        `Sketched with MixSketch from "${meta?.name ?? 'a playlist'}"`,
+      )
+      try {
+        await addTracksToPlaylist(
+          created.id,
+          orderedTracks.map((t) => t.uri),
+        )
+      } catch (err) {
+        throw new Error(
+          `The playlist was created but adding tracks failed: ${err instanceof Error ? err.message : String(err)}`,
+        )
+      }
+      setDuplicateOpen(false)
+      setDuplicateSuccess({ name, url: created.url, count: orderedTracks.length })
+    } catch (err) {
+      setDuplicateError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setDuplicating(false)
+    }
+  }
+
   const handleManualSave = (trackId: string, bpm: number | null, camelotKey: string | null) => {
     const info: TrackKeyInfo = {
       bpm,
@@ -492,8 +540,25 @@ export default function PlaylistDetail() {
                 ? 'Drag rows to sketch your mix order'
                 : 'Clear filter & sort by # to drag-reorder'}
             </span>
+            <button className="toolbar-button duplicate-button" onClick={openDuplicate}>
+              Duplicate playlist
+            </button>
           </div>
           {actionError && <div className="action-error">{actionError}</div>}
+          {duplicateSuccess && (
+            <div className="action-success">
+              Created "{duplicateSuccess.name}" with {duplicateSuccess.count}{' '}
+              {duplicateSuccess.count === 1 ? 'track' : 'tracks'}
+              {duplicateSuccess.url && (
+                <>
+                  {' — '}
+                  <a href={duplicateSuccess.url} target="_blank" rel="noreferrer">
+                    open in Spotify
+                  </a>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <table className="track-table">
@@ -593,6 +658,50 @@ export default function PlaylistDetail() {
         )}
       </DragOverlay>
       </DndContext>
+
+      {duplicateOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => {
+            if (!duplicating) setDuplicateOpen(false)
+          }}
+        >
+          <form className="modal-card" onClick={(e) => e.stopPropagation()} onSubmit={handleDuplicate}>
+            <h2>Duplicate playlist</h2>
+            <p className="modal-hint">
+              Creates a new private Spotify playlist with{' '}
+              {orderedTracks.length === 1 ? '1 track' : `all ${orderedTracks.length} tracks`} in
+              your current sketch order.
+            </p>
+            <input
+              className="modal-input"
+              type="text"
+              value={duplicateName}
+              onChange={(e) => setDuplicateName(e.target.value)}
+              placeholder="Playlist name"
+              autoFocus
+            />
+            {duplicateError && <div className="action-error">{duplicateError}</div>}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="toolbar-button"
+                onClick={() => setDuplicateOpen(false)}
+                disabled={duplicating}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="toolbar-button primary"
+                disabled={duplicating || !duplicateName.trim()}
+              >
+                {duplicating ? 'Creating…' : 'Create playlist'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

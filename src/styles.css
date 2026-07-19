@@ -303,6 +303,92 @@ code {
   margin-top: 6px;
 }
 
+.action-success {
+  color: #6ee7a0;
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.action-success a {
+  color: inherit;
+}
+
+/* ---------- duplicate-playlist dialog ---------- */
+
+.duplicate-button {
+  margin-left: auto;
+}
+
+.toolbar-button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #06230f;
+  font-weight: 600;
+}
+
+.toolbar-button.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.toolbar-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 22px;
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+.modal-card h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.modal-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.modal-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ---------- dragging matches from the in-key panel ---------- */
 
 .inkey-hint {

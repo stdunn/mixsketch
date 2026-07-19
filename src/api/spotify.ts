@@ -142,6 +142,29 @@ export async function getPlaylistMeta(id: string): Promise<Playlist> {
   return mapPlaylist(raw)
 }
 
+/** Create a new (private) playlist on the current user's account. */
+export async function createPlaylist(
+  name: string,
+  description: string,
+): Promise<{ id: string; url: string }> {
+  const me = await spotifyFetch<{ id: string }>('/me')
+  const p = await spotifyFetch<{ id: string; external_urls?: { spotify?: string } }>(
+    `/users/${encodeURIComponent(me.id)}/playlists`,
+    { method: 'POST', body: JSON.stringify({ name, description, public: false }) },
+  )
+  return { id: p.id, url: p.external_urls?.spotify ?? '' }
+}
+
+/** Append tracks to a playlist in order (batched 100 per request). */
+export async function addTracksToPlaylist(playlistId: string, uris: string[]): Promise<void> {
+  for (let i = 0; i < uris.length; i += 100) {
+    await spotifyFetch<void>(`/playlists/${playlistId}/tracks`, {
+      method: 'POST',
+      body: JSON.stringify({ uris: uris.slice(i, i + 100) }),
+    })
+  }
+}
+
 /**
  * Remove a track from a playlist. Removing by URI alone deletes every copy of
  * the track, so when the playlist contains duplicates pass `position` (index
