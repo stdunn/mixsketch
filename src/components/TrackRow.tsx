@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { CompatTier } from '../lib/camelot'
@@ -47,15 +48,39 @@ export default function TrackRow({
     id: uid,
     disabled: !dragEnabled,
   })
-  const [menuOpen, setMenuOpen] = useState(false)
+  // the menu renders in a portal with fixed positioning so the table's
+  // scroll container can't clip it; null = closed
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
+  const menuOpen = menuPos !== null
 
-  // any click outside the menu closes it
+  // close on any outside click, scroll, or resize (fixed pos would go stale)
   useEffect(() => {
     if (!menuOpen) return
-    const close = () => setMenuOpen(false)
+    const close = () => setMenuPos(null)
     document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
   }, [menuOpen])
+
+  const toggleMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (menuOpen) {
+      setMenuPos(null)
+      return
+    }
+    const MENU_W = 190
+    const MENU_H = 44
+    const rect = e.currentTarget.getBoundingClientRect()
+    const openUp = rect.bottom + MENU_H + 8 > window.innerHeight
+    setMenuPos({
+      top: openUp ? rect.top - MENU_H - 4 : rect.bottom + 4,
+      left: Math.max(8, Math.min(rect.right - MENU_W, window.innerWidth - MENU_W - 8)),
+    })
+  }
 
   const bpm = info?.bpm != null ? Math.round(info.bpm) : null
   const pendingMark = lookupPending ? <span className="pending">…</span> : '—'
@@ -98,33 +123,40 @@ export default function TrackRow({
         {info?.camelotKey ? <span className="key-badge">{info.camelotKey}</span> : pendingMark}
       </td>
       <td className="col-options">
-        <div className="options-wrap">
-          <button
-            className={`options-button${menuOpen ? ' open' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              setMenuOpen((o) => !o)
-            }}
-            title="Options"
-            aria-label={`Options for ${track.title}`}
-            aria-expanded={menuOpen}
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div className="options-menu" onClick={(e) => e.stopPropagation()}>
+        <button
+          className={`options-button${menuOpen ? ' open' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleMenu(e)
+          }}
+          title="Options"
+          aria-label={`Options for ${track.title}`}
+          aria-expanded={menuOpen}
+        >
+          ⋯
+        </button>
+        {menuPos &&
+          createPortal(
+            // portal events still bubble through the React tree, so stop them
+            // from reaching the row's click (select) and drag handlers
+            <div
+              className="options-menu"
+              style={menuPos}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <button
                 className="options-item danger"
                 onClick={() => {
-                  setMenuOpen(false)
+                  setMenuPos(null)
                   onRemove()
                 }}
               >
                 Remove from playlist
               </button>
-            </div>
+            </div>,
+            document.body,
           )}
-        </div>
       </td>
     </tr>
   )
