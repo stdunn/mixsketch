@@ -24,6 +24,8 @@ interface Props {
   compatTier: CompatTier | null
   /** true while this track's key data is still being looked up */
   lookupPending: boolean
+  /** true while this row's track is being dragged from the in-key panel */
+  ghosted: boolean
   dragEnabled: boolean
   /** null while the in-app player isn't ready */
   onPlay: (() => void) | null
@@ -39,6 +41,7 @@ export default function TrackRow({
   selected,
   compatTier,
   lookupPending,
+  ghosted,
   dragEnabled,
   onPlay,
   onClick,
@@ -87,7 +90,7 @@ export default function TrackRow({
   const classes = ['track-row']
   if (selected) classes.push('selected')
   if (compatTier) classes.push(`compat-${compatTier}`)
-  if (isDragging) classes.push('dragging')
+  if (isDragging || ghosted) classes.push('dragging')
   if (dragEnabled) classes.push('draggable')
 
   return (

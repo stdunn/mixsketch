@@ -5,8 +5,10 @@ import {
   DragOverlay,
   PointerSensor,
   closestCenter,
+  pointerWithin,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
@@ -48,6 +50,12 @@ const LOOKUP_DELAY_MS = 400
 // drag ids for in-key panel items: `panel:<row uid>`, so a panel drag acts
 // exactly like dragging that track's row in the table
 const PANEL_DRAG_PREFIX = 'panel:'
+
+// Row drags keep closestCenter (standard sortable feel). Panel drags require
+// the pointer to actually be over a row — releasing outside the table means
+// "never mind", not "drop on the nearest row".
+const collisionDetection: CollisionDetection = (args) =>
+  String(args.active.id).startsWith(PANEL_DRAG_PREFIX) ? pointerWithin(args) : closestCenter(args)
 
 type SortCol = 'position' | 'title' | 'artist' | 'bpm' | 'key'
 
@@ -281,6 +289,15 @@ export default function PlaylistDetail() {
 
   const dragEnabled = sortCol === 'position' && sortDir === 1 && !filterText
 
+  // During a panel drag, stand the panel item in for its row inside the
+  // sortable list: with the active drag id present at that row's index, the
+  // other rows displace to preview the drop, exactly like a row drag.
+  const sortableIds = useMemo(
+    () =>
+      displayItems.map((d) => (d.uid === panelDragUid ? PANEL_DRAG_PREFIX + d.uid : d.uid)),
+    [displayItems, panelDragUid],
+  )
+
   const selectedTrack = useMemo(
     () => tracks?.find((t) => t.id === selectedId) ?? null,
     [tracks, selectedId],
@@ -430,7 +447,7 @@ export default function PlaylistDetail() {
           be dragged straight into the playlist */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={collisionDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setPanelDragUid(null)}
@@ -516,10 +533,7 @@ export default function PlaylistDetail() {
                 <th className="col-options" aria-label="Options" />
               </tr>
             </thead>
-            <SortableContext
-              items={displayItems.map((d) => d.uid)}
-              strategy={verticalListSortingStrategy}
-            >
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
               <tbody>
                 {displayItems.map(({ track, uid, position }) => (
                   <TrackRow
@@ -536,6 +550,7 @@ export default function PlaylistDetail() {
                       null
                     }
                     lookupPending={!keyInfo[track.id] && pendingLookups > 0}
+                    ghosted={uid === panelDragUid}
                     dragEnabled={dragEnabled}
                     onPlay={playerDeviceId ? () => handlePlay(track.uri) : null}
                     onClick={() => setSelectedId((prev) => (prev === track.id ? null : track.id))}
